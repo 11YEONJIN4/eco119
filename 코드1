@@ -1,0 +1,100 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# 한글 폰트 설정
+plt.rcParams['font.family'] = 'Malgun Gothic'
+
+# 파일 불러오기
+file_path = r"C:\Users\pc\Desktop\BEU\BEU11.csv"
+df = pd.read_csv(file_path)
+df.columns = df.columns.str.strip()
+
+# 비중 열 처리
+df['비중(%)'] = (
+    df['비중(%)']
+    .astype(str)
+    .str.replace('%', '')
+    .str.replace(',', '')
+    .astype(float)
+)
+
+# ----------------------------
+# 🎯 1. Pie Chart - 비중(%)
+# ----------------------------
+df_pie = df.copy()
+if '합계' in df_pie.iloc[-1, 0]:
+    df_pie = df_pie[:-1]
+
+# 그래프 위치 선정 조정 
+labels_order = df_pie['건물용도별'].tolist()
+if '기타' in labels_order and '공업용' in labels_order:
+    labels_order.remove('기타')
+    idx = labels_order.index('공업용')
+    labels_order.insert(idx + 1, '기타')
+    df_pie = (
+        df_pie
+        .set_index('건물용도별')
+        .loc[labels_order]
+        .reset_index()
+    )
+
+# 파이 차트 그리기
+fig, ax = plt.subplots(figsize=(8, 8))
+wedges, texts, autotexts = ax.pie(
+    df_pie['비중(%)'],
+    labels=df_pie['건물용도별'],
+    autopct='%1.1f%%',
+    startangle=140,
+    pctdistance=0.6,
+    labeldistance=1.15,
+    textprops={'fontsize': 12, 'fontweight': 'bold'}
+)
+
+# 범례 위치 조정
+ax.legend(
+    wedges,
+    df_pie['건물용도별'],
+    title="범례",
+    loc='lower right',
+    bbox_to_anchor=(1.25, 0),
+    fontsize=12,
+    title_fontsize=12
+)
+
+# 제목
+plt.title('건물 용도별 에너지 사용 비중 (%)', fontsize=14, fontweight='bold')
+plt.tight_layout()
+plt.show()
+
+
+# ----------------------------
+# 🎯 2. 수평 누적 막대 그래프 (단위: ktoe)
+# ----------------------------
+
+# 대상 열
+energy_cols = ['전기(toe)', '도시가스(toe)', '지역난방(toe)']
+
+# 쉼표 제거 + float 변환 + 단위 변환 (toe → ktoe)
+for col in energy_cols:
+    df[col] = df[col].astype(str).str.replace(',', '').astype(float) / 1000
+
+# 총합 기준 정렬용 열 추가
+df['총합'] = df[energy_cols].sum(axis=1)
+df_sorted = df.sort_values(by='총합', ascending=True)
+
+# 그래프 그리기
+plt.figure(figsize=(10, 6))
+plt.barh(df_sorted['건물용도별'], df_sorted['전기(toe)'], label='전기 (ktoe)')
+plt.barh(df_sorted['건물용도별'], df_sorted['도시가스(toe)'],
+         left=df_sorted['전기(toe)'], label='도시가스 (ktoe)')
+plt.barh(df_sorted['건물용도별'], df_sorted['지역난방(toe)'],
+         left=df_sorted['전기(toe)'] + df_sorted['도시가스(toe)'], label='지역난방 (ktoe)')
+
+plt.xlabel('에너지 사용량 (ktoe)')
+plt.title('건물 용도별 에너지원 사용량 (ktoe)')
+
+# 범례를 그래프 내부 오른쪽 하단에 위치
+plt.legend(loc='lower right')
+
+plt.tight_layout()
+plt.show()
