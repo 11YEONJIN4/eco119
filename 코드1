@@ -97,4 +97,7 @@ plt.title('건물 용도별 에너지원 사용량 (ktoe)')
 plt.legend(loc='lower right')
 
 plt.tight_layout()
-plt.show()
+plt.show
+
+
+
