@@ -1,0 +1,265 @@
+import tkinter as tk
+from tkinter import ttk
+import matplotlib.pyplot as plt
+import numpy as np
+
+# 부문별 열관류율 데이터 (W/m²·K)
+material_u_values = {
+    "외벽": {
+        "일반 콘크리트 (200mm)": 2.4,
+        "고성능 단열 콘크리트 (200mm, EPS 50mm 포함)": 0.3,
+        "경량 콘크리트 (150mm)": 1.2,
+        "ALC 블록 (100mm)": 0.6,
+        "벽돌 (180mm, 단열재 없음)": 1.8,
+        "벽돌 + EPS 단열재 (50mm)": 0.35,
+        "벽돌 + 우레탄폼 (50mm)": 0.28,
+        "목재 패널 (50mm)": 0.1,
+        "샌드위치 패널 (EPS 100mm)": 0.32,
+        "중부1 외벽 (기준 0.270 이하)": 0.27,
+        "중부2 외벽 (기준 0.340 이하)": 0.34,
+        "남부 외벽 (기준 0.440 이하)": 0.44,
+        "제주도 외벽 (기준 0.440 이하)": 0.44
+    },
+    "지붕": {
+        "콘크리트 지붕 (200mm, 단열재 없음)": 2.0,
+        "콘크리트 지붕 + EPS (100mm)": 0.25,
+        "콘크리트 지붕 + 우레탄폼 (80mm)": 0.20,
+        "중부1 지붕 (기준 0.180 이하)": 0.18,
+        "중부2 지붕 (기준 0.220 이하)": 0.22,
+        "남부 지붕 (기준 0.280 이하)": 0.28,
+        "제주도 지붕 (기준 0.280 이하)": 0.28
+    },
+    "바닥": {
+        "콘크리트 바닥 (200mm, 단열재 없음)": 1.9,
+        "콘크리트 바닥 + EPS (50mm)": 0.35,
+        "바닥난방 (중부1, 기준 0.230 이하)": 0.23,
+        "바닥난방 (중부2, 기준 0.280 이하)": 0.28,
+        "바닥난방 (남부, 기준 0.330 이하)": 0.33,
+        "바닥난방 (제주도, 기준 0.330 이하)": 0.33,
+        "비난방 바닥 (중부1, 기준 0.290 이하)": 0.29,
+        "비난방 바닥 (중부2, 기준 0.340 이하)": 0.34
+    },
+    "창호": {
+        "단판 유리 (6mm)": 5.8,
+        "일반 복층 유리 (6+6mm, 공기층 12mm)": 2.8,
+        "3중 유리 (6+12+6+12+6mm, 공기층)": 0.8,
+        "Low-E 복층 유리 (6+12+6mm)": 1.4,
+        "Low-E 3중 유리 (6+12+6+12+6mm)": 0.6,
+        "중부1 창호 (기준 0.900 이하)": 0.9,
+        "중부2 창호 (기준 1.100 이하)": 1.1,
+        "남부 창호 (기준 1.400 이하)": 1.4,
+        "제주도 창호 (기준 1.600 이하)": 1.6
+    },
+    "기타": {
+        "스티로폼 (EPS, 50mm)": 0.034,
+        "우레탄폼 (50mm)": 0.025,
+        "글라스울 (50mm)": 0.045,
+        "미네랄울 (50mm)": 0.038,
+        "셀룰로스 단열재 (50mm)": 0.040,
+        "알루미늄 패널 (5mm)": 200.0,
+        "스테인리스강 패널 (5mm)": 16.0,
+        "목재 합판 (20mm)": 0.12,
+        "석고보드 (12mm)": 0.25,
+        "화강석 (20mm)": 2.8,
+        "세라믹 타일 (10mm)": 1.3,
+        "PVC 패널 (10mm)": 0.16
+    }
+}
+
+class CarbonEmissionEducationProgram:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("건물 탄소발생량 추정 교육 프로그램")
+
+        # 창 크기 동적 설정
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        window_width = int(screen_width * 0.7)
+        window_height = int(screen_height * 0.8)
+        self.root.geometry(f"{window_width}x{window_height}")
+
+        # 메인 프레임 생성
+        main_frame = tk.Frame(self.root)
+        main_frame.pack(fill="both", expand=True)
+
+        # 캔버스와 스크롤바 생성
+        canvas = tk.Canvas(main_frame)
+        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+        self.scrollable_frame = tk.Frame(canvas)
+
+        # 캔버스에 스크롤 가능 프레임 추가
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+
+        # 스크롤바와 캔버스 연결
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # 스크롤 영역 동적 업데이트
+        def update_scrollregion(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        self.scrollable_frame.bind("<Configure>", update_scrollregion)
+
+        # 캔버스와 스크롤바 배치
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # GUI 구성
+        tk.Label(self.scrollable_frame, text="건물 탄소발생량 추정 교육 프로그램", font=("Arial", 16)).pack(pady=10)
+
+        # 설명 라벨 추가 (교육적 요소)
+        tk.Label(self.scrollable_frame, text="이 프로그램은 건물의 열손실을 계산하여 탄소 배출량을 추정합니다.\n"
+                                             "각 부문(외벽, 지붕 등)의 재료를 선택하고 면적, 온도차를 입력하세요.\n"
+                                             "탄소 배출 계수: 0.474 kgCO₂/kWh (한국 기준)", font=("Arial", 12), wraplength=500).pack(pady=5)
+
+        # 지역 선택
+        tk.Label(self.scrollable_frame, text="지역 선택:").pack()
+        self.region_var = tk.StringVar(value="중부1")
+        region_menu = ttk.Combobox(self.scrollable_frame, textvariable=self.region_var, values=["중부1", "중부2", "남부", "제주도"])
+        region_menu.pack()
+
+        # 패시브 디자인 입력 (부문별)
+        self.sections = ["외벽", "지붕", "바닥", "창호", "기타"]  # Fixed typo: "외wall" -> "외벽"
+        self.material_vars = {}
+        self.area_entries = {}
+        self.heat_losses = {}
+        self.carbon_emissions = {}
+
+        tk.Label(self.scrollable_frame, text="건물 부문별 입력").pack(pady=5)
+        for section in self.sections:
+            tk.Label(self.scrollable_frame, text=f"{section} 소재 선택:").pack()
+            self.material_vars[section] = tk.StringVar(value=list(material_u_values[section].keys())[0])
+            material_menu = ttk.Combobox(self.scrollable_frame, textvariable=self.material_vars[section], values=list(material_u_values[section].keys()))
+            material_menu.pack()
+
+            tk.Label(self.scrollable_frame, text=f"{section} 면적 (m²):").pack()
+            self.area_entries[section] = tk.Entry(self.scrollable_frame)
+            self.area_entries[section].pack()
+
+        tk.Label(self.scrollable_frame, text="실내외 온도차 (℃):").pack()
+        self.temp_diff_entry = tk.Entry(self.scrollable_frame)
+        self.temp_diff_entry.pack()
+
+        tk.Label(self.scrollable_frame, text="사용 시간 (시간/년, 예: 8760 for 1년):").pack()
+        self.time_entry = tk.Entry(self.scrollable_frame)
+        self.time_entry.pack()
+
+        # 계산 버튼
+        tk.Button(self.scrollable_frame, text="탄소 배출량 계산", command=self.calculate).pack(pady=10)
+
+        # 결과 출력
+        self.result_label = tk.Label(self.scrollable_frame, text="", font=("Arial", 12), wraplength=500)
+        self.result_label.pack(pady=10)
+
+        # 시각화 버튼
+        tk.Button(self.scrollable_frame, text="탄소 배출량 시각화", command=self.plot_results).pack(pady=5)
+
+        # 저탄소 설계 제안 버튼
+        tk.Button(self.scrollable_frame, text="저탄소 설계 제안", command=self.suggest_low_carbon).pack(pady=5)
+
+        # 초기 스크롤 영역 설정
+        self.root.update()
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    def calculate(self):
+        try:
+            # 탄소 배출 계수 (kgCO₂/kWh)
+            CARBON_FACTOR = 0.474
+            total_heat_loss = 0
+            total_carbon_emission = 0
+            temp_diff = float(self.temp_diff_entry.get())
+            time_hours = float(self.time_entry.get())  # 연간 사용 시간
+            result_text = "부문별 탄소 배출량:\n"
+            self.heat_losses = {}
+            self.carbon_emissions = {}
+
+            region = self.region_var.get()
+            region_standards = {
+                "중부1": {"외벽": 0.27, "지붕": 0.18, "바닥난방": 0.23, "창호": 0.9},
+                "중부2": {"외벽": 0.34, "지붕": 0.22, "바닥난방": 0.28, "창호": 1.1},
+                "남부": {"외벽": 0.44, "지붕": 0.28, "바닥난방": 0.33, "창호": 1.4},
+                "제주도": {"외벽": 0.44, "지붕": 0.28, "바닥난방": 0.33, "창호": 1.6}
+            }
+
+            for section in self.sections:
+                material = self.material_vars[section].get()
+                u_value = material_u_values[section][material]
+                area = float(self.area_entries[section].get())
+                # 열손실 계산 (W)
+                heat_loss = u_value * area * temp_diff
+                # 에너지 소비 계산 (kWh)
+                energy_consumption = (heat_loss * time_hours) / 1000
+                # 탄소 배출량 계산 (kgCO₂)
+                carbon_emission = energy_consumption * CARBON_FACTOR
+
+                self.heat_losses[section] = heat_loss
+                self.carbon_emissions[section] = carbon_emission
+                total_heat_loss += heat_loss
+                total_carbon_emission += carbon_emission
+
+                # 지역 기준 확인
+                standard_key = "바닥난방" if section == "바닥" and "난방" in material else section
+                standard = region_standards[region].get(standard_key, 1.0)
+                compliance = "적합" if u_value <= standard else "부적합 (지역 기준 초과)"
+                result_text += f"{section}: {carbon_emission:.2f} kgCO₂ (열관류율 {u_value:.3f}, {compliance})\n"
+
+            # 결과 표시
+            result_text += f"\n총 열손실: {total_heat_loss:.2f} W\n"
+            result_text += f"총 탄소 배출량: {total_carbon_emission:.2f} kgCO₂\n"
+            self.result_label.config(text=result_text)
+
+            # 결과 저장
+            self.total_heat_loss = total_heat_loss
+            self.total_carbon_emission = total_carbon_emission
+
+            # 스크롤 영역 업데이트
+            self.root.update()
+            canvas = self.scrollable_frame.master
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        except ValueError:
+            self.result_label.config(text="입력값을 확인하세요 (숫자 입력 필요)")
+
+    def plot_results(self):
+        try:
+            # 시각화
+            labels = list(self.carbon_emissions.keys()) + ["총 탄소 배출량"]
+            values = list(self.carbon_emissions.values()) + [self.total_carbon_emission]
+
+            plt.figure(figsize=(8, 5))
+            plt.bar(labels, values, color=["blue"] * len(self.sections) + ["darkblue"])
+            plt.title("부문별 탄소 배출량")
+            plt.ylabel("탄소 배출량 (kgCO₂)")
+            plt.xticks(rotation=45)
+            plt.tight_layout()
+            plt.savefig("carbon_emission_plot.png")
+            plt.show()
+
+        except AttributeError:
+            self.result_label.config(text="먼저 계산을 수행하세요")
+
+    def suggest_low_carbon(self):
+        # 저탄소 설계 제안
+        suggestions = "저탄소 설계 제안:\n"
+        for section in self.sections:
+            material = self.material_vars[section].get()
+            u_value = material_u_values[section][material]
+            # 현재 선택된 재료의 U-value와 비교하여 더 낮은 U-value를 가진 재료 추천
+            better_materials = {m: u for m, u in material_u_values[section].items() if u < u_value}
+            if better_materials:
+                best_material = min(better_materials, key=better_materials.get)
+                suggestions += f"{section}: '{material}'(U={u_value:.3f}) 대신 '{best_material}'(U={better_materials[best_material]:.3f}) 사용 권장\n"
+            else:
+                suggestions += f"{section}: '{material}'은 이미 낮은 열관류율을 가짐 (U={u_value:.3f})\n"
+        self.result_label.config(text=self.result_label.cget("text") + "\n" + suggestions)
+
+        # 스크롤 영역 업데이트
+        self.root.update()
+        canvas = self.scrollable_frame.master
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+# 프로그램 실행
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = CarbonEmissionEducationProgram(root)
+    root.mainloop()
+
