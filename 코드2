@@ -1,0 +1,69 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# 한글 폰트 설정 (Windows)
+plt.rcParams['font.family'] = 'Malgun Gothic'
+plt.rcParams['axes.unicode_minus'] = False
+
+# CSV 파일 불러오기
+file_path = r"C:\Users\pc\Desktop\BEU\BEU12.csv"
+df = pd.read_csv(file_path)
+
+# '합계' 행 제거, 인덱스 설정
+df = df[df['대분류'] != '합계'].set_index('대분류')
+
+# 사용할 컬럼
+energy_cols = ['전기(toe)', '도시가스(toe)', '지역난방(toe)']
+df_toe  = df[energy_cols]
+df_mtoe = df_toe / 1e6
+
+# 그래프 그리기
+fig, ax = plt.subplots(figsize=(8,5))
+df_mtoe.plot(kind='bar', stacked=True, width=0.6, ax=ax)
+
+# 전체 합계 계산
+totals_toe = df_toe.sum(axis=1)
+totals_mtoe = df_mtoe.sum(axis=1)
+
+# y축 상한을 최대값의 1.15배로 설정 (15% 여유)
+y_max = totals_mtoe.max() * 1.15
+ax.set_ylim(0, y_max)
+
+# 에너지원별 백분율 주석 추가
+bottoms = np.zeros(len(df_mtoe))
+for col in energy_cols:
+    heights = df_mtoe[col]
+    percents = df_toe[col] / totals_toe * 100
+    for i, (h, p) in enumerate(zip(heights, percents)):
+        if h > 0:
+            ax.text(
+                i,
+                bottoms[i] + h/2,
+                f'{p:.1f}%',
+                ha='center', va='center',
+                fontsize=9,
+                color='white'
+            )
+    bottoms += heights
+
+# 막대 위에 전체 합계 (toe) 주석 추가 (조금 낮은 위치)
+for i, total in enumerate(totals_toe):
+    ax.text(
+        i,
+        totals_mtoe.iloc[i] * 1.02,    # 2% 위
+        f'{int(total):,} toe',
+        ha='center', va='bottom'
+    )
+
+# x축 레이블 수평 회전
+ax.set_xticklabels(df_mtoe.index, rotation=0)
+
+# 축 제목 및 그래프 제목
+ax.set_xlabel('주거용 건물')
+ax.set_ylabel('1차 에너지 사용량 (Mtoe)')
+ax.set_title('주거용 건물 에너지원별 1차 에너지 사용량')
+ax.legend(title='에너지원')
+
+plt.tight_layout()
+plt.show()
