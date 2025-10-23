@@ -1,1 +1,58 @@
+import pandas as pd
+import matplotlib.pyplot as plt
 
+# 한글 폰트 설정 (Windows)
+plt.rcParams['font.family'] = 'Malgun Gothic'
+plt.rcParams['axes.unicode_minus'] = False
+
+# 1) 데이터 불러오기 및 전처리
+file_path = r"C:\Users\pc\Desktop\BEU\BEU12.csv"
+df = pd.read_csv(file_path)
+df.columns = df.columns.str.strip()
+df = df[df['대분류'] != '합계'].set_index('대분류')
+
+# 2) 연료별 탄소·CO₂ 배출 계수 설정 (t C/TJ)
+ef_tC_per_TJ = {
+    '전기(toe)':     52.05,
+    '도시가스(toe)':  50.30,
+    '지역난방(toe)':  56.10
+}
+TJ_per_toe = 0.041868  # 1 toe = 0.041868 TJ
+
+# 3) 연료별 t C, t CO₂ 계산
+energy_cols = ['전기(toe)', '도시가스(toe)', '지역난방(toe)']
+results = pd.DataFrame(index=df.index)
+
+for col in energy_cols:
+    tC   = df[col] * TJ_per_toe * ef_tC_per_TJ[col]
+    tCO2 = tC * (44/12)
+    fuel = col.split('(')[0]
+    results[f'{fuel} (t C)']   = tC.round(2)
+    results[f'{fuel} (t CO₂)'] = tCO2.round(2)
+
+# 4) 합계 컬럼 추가
+results['Total (t C)']    = results.filter(like='(t C)').sum(axis=1).round(2)
+results['Total (t CO₂)']  = results.filter(like='(t CO₂)').sum(axis=1).round(2)
+
+# 5) 숫자에 천 단위 쉼표 포맷 적용
+#    DataFrame의 값들을 문자열로 포맷팅
+formatted = results.applymap(lambda x: f"{x:,.2f}")
+
+# 6) Matplotlib 이미지 테이블 생성
+fig, ax = plt.subplots(figsize=(12, 1 + len(formatted) * 0.5))
+ax.axis('off')
+
+tbl = ax.table(
+    cellText=formatted.values,
+    colLabels=formatted.columns,
+    rowLabels=formatted.index,
+    cellLoc='center',
+    loc='center'
+)
+tbl.auto_set_font_size(False)
+tbl.set_fontsize(11)
+tbl.scale(1, 1.5)
+
+plt.title('연료별 탄소배출량 (t C) 및 CO₂ 배출량 (t CO₂)', fontweight='bold')
+plt.tight_layout()
+plt.show()
